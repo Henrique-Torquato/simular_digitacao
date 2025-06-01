@@ -3,7 +3,7 @@ import time
 import random
 import string
 import pyautogui
-import keyboard # Mantido para a tecla de parada global
+import keyboard
 
 try:
     import pyperclip
@@ -11,45 +11,33 @@ try:
     print("Pyperclip importado com sucesso.")
 except ImportError:
     PYPERCLIP_DISPONIVEL = False
-    print("Pyperclip não encontrado. Caracteres especiais podem não ser digitados corretamente.")
+    print("Pyperclip não encontrado...")
     print("Para instalar: pip install pyperclip")
 
-# --- Configurações Globais ---
 TECLA_DE_PARADA = 'esc'
-# simulacao_em_andamento será uma variável de instância (self.simulacao_em_andamento)
-
-# --- Configurações para Erros (mantidas globais) ---
 CHANCE_DE_ERRO_UM_CHAR = 0.03
 CHANCE_DE_ERRO_BLOCO = 0.015
 TAMANHOS_BLOCO_ERRO = [3, 4, 5]
 POSSIVEIS_CHARS_ERRO = string.ascii_lowercase
 ASCII_SIMPLES_PARA_TYPEWRITE = string.ascii_letters + string.digits + string.punctuation + ' \n\t'
 
-
-# --- Funções Auxiliares de Simulação (mantidas globais, pois não dependem do estado da GUI diretamente) ---
-#     Elas serão chamadas por métodos da classe SimuladorApp.
-
 def digitar_caractere_com_clipboard(char_para_digitar):
-    """Digita um caractere usando o clipboard se necessário (para caracteres especiais)."""
     if not PYPERCLIP_DISPONIVEL:
         pyautogui.typewrite(char_para_digitar)
         return
     try:
         clipboard_original = pyperclip.paste()
         pyperclip.copy(char_para_digitar)
-        # Pequena pausa para garantir que o clipboard foi atualizado e a aplicação alvo está pronta
-        time.sleep(0.05) 
+        time.sleep(0.05)
         pyautogui.hotkey('ctrl', 'v')
-        time.sleep(0.05) # Pausa após colar
-        pyperclip.copy(clipboard_original) # Restaura o clipboard original
+        time.sleep(0.05)
+        pyperclip.copy(clipboard_original)
     except Exception as e:
         print(f"DEBUG: Erro ao usar pyperclip para '{char_para_digitar}': {e}. Tentando typewrite.")
         pyautogui.typewrite(char_para_digitar)
 
 def calcular_delay(modo_velocidade, tipo_de_pausa="normal_char"):
-    """Calcula os delays para a digitação, variando conforme o modo e o tipo de pausa."""
     fator_timelapse_erro = 0.2
-
     if modo_velocidade == "Normal":
         if tipo_de_pausa == "normal_char": return random.uniform(0.05, 0.18)
         elif tipo_de_pausa == "percepcao_erro_um_char": return random.uniform(0.3, 0.7)
@@ -68,163 +56,265 @@ def calcular_delay(modo_velocidade, tipo_de_pausa="normal_char"):
         elif tipo_de_pausa == "percepcao_erro_bloco": return random.uniform(0.05, 0.12) * fator_timelapse_erro
         elif tipo_de_pausa == "entre_backspaces_bloco": return random.uniform(0.005, 0.015)
         elif tipo_de_pausa == "pos_correcao_bloco": return random.uniform(0.02, 0.06) * fator_timelapse_erro
-    return 0.05  # Fallback
+    return 0.05
 
 def calcular_delay_palavra(modo_velocidade):
-    """Calcula o delay após digitar um espaço (fim de palavra)."""
     if modo_velocidade == "Normal": return random.uniform(0.1, 0.3)
     elif modo_velocidade == "Time-Lapse": return random.uniform(0.005, 0.02)
     return 0.1
 
-
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QLabel, QTextEdit, QRadioButton, QPushButton,
                                QMessageBox, QButtonGroup, QSizePolicy, QSpacerItem)
-from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QFont, QScreen # Para centralizar a janela
-
+from PySide6.QtCore import Qt, Slot, QSize
+from PySide6.QtGui import QFont, QScreen, QPixmap
 
 class SimuladorApp(QWidget):
     def __init__(self):
         super().__init__()
         self.simulacao_em_andamento = False
-        self.setWindowTitle("Simulador de Digitação Realista - PySide6")
+        self.setWindowTitle("Simulador de Digitação Avançado")
+        self.setObjectName("MainWindow")
         self.init_ui()
-        self.apply_styles()
+        self.apply_styles() # Aplicar estilos DEPOIS que todos os objectNames estiverem definidos
         self._center_window()
 
-    def init_ui(self):
-        """Configura a interface gráfica do usuário."""
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20) # Margens externas
-        main_layout.setSpacing(15) # Espaçamento entre seções
+    def _create_header(self):
+        header_widget = QWidget()
+        header_widget.setObjectName("HeaderWidget")
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(15, 10, 15, 10)
+        header_layout.setSpacing(10)
 
-        # --- Seção de Entrada de Texto ---
+        logo_label_placeholder = QLabel("HT")
+        logo_label_placeholder.setObjectName("LogoLabel")
+        # A fonte será definida via QSS
+
+        app_title_label = QLabel("| Simulador de Digitação Realista")
+        app_title_label.setObjectName("AppTitleLabel")
+        # A fonte será definida via QSS
+
+        header_layout.addWidget(logo_label_placeholder)
+        header_layout.addSpacerItem(QSpacerItem(5, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)) # Espaço reduzido
+        header_layout.addWidget(app_title_label)
+        header_layout.addStretch()
+        return header_widget
+
+    def _create_footer(self):
+        footer_widget = QWidget()
+        footer_widget.setObjectName("FooterWidget")
+        footer_layout = QHBoxLayout(footer_widget)
+        footer_layout.setContentsMargins(15, 8, 15, 8)
+
+        copyright_label = QLabel("© 2025 Henrique Torquato. Todos os direitos reservados.")
+        copyright_label.setObjectName("CopyrightLabel")
+        
+        version_label = QLabel("Versão 2.1.0") # Incrementando a versão pela mudança de fonte
+        version_label.setObjectName("VersionLabel")
+
+        footer_layout.addWidget(copyright_label)
+        footer_layout.addStretch()
+        footer_layout.addWidget(version_label)
+        return footer_widget
+
+    def init_ui(self):
+        overall_layout = QVBoxLayout(self)
+        overall_layout.setContentsMargins(0, 0, 0, 0)
+        overall_layout.setSpacing(0)
+
+        header = self._create_header()
+        overall_layout.addWidget(header)
+
+        content_widget = QWidget()
+        content_widget.setObjectName("ContentWidget")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(25, 20, 25, 25)
+        content_layout.setSpacing(18)
+
         self.label_texto = QLabel("Cole o texto para simulação abaixo:")
-        main_layout.addWidget(self.label_texto)
+        self.label_texto.setObjectName("LabelTextoPrincipal") # Adicionando objectName
+        content_layout.addWidget(self.label_texto)
 
         self.campo_texto = QTextEdit()
         self.campo_texto.setPlaceholderText("Digite ou cole seu texto aqui...")
-        self.campo_texto.setMinimumHeight(150) # Altura mínima para o campo de texto
-        self.campo_texto.setText("""Olá, este é um texto de exemplo para testar erros em bloco.
-Atenção para a simulação de digitação mais complexa.
-O sistema tentará, às vezes, digitar um bloco de 3, 4 ou 5 caracteres errados,
-e depois apagá-los antes de continuar com o texto correto.
+        self.campo_texto.setMinimumHeight(180)
+        self.campo_texto.setText("Testando as novas fontes estilo Apple...\nSF Pro, Helvetica Neue, Arial...\nO visual deve estar mais refinado agora.\n12345 !@#$%.")
+        content_layout.addWidget(self.campo_texto)
+        
+        content_layout.addSpacerItem(QSpacerItem(0, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed))
 
-Vamos ver como a palavra "sequência" será digitada, ou "paralelepípedo".
-Números: 1234567890. Símbolos: !@#$%^&*()_+=-[]{};':",./<>?`~
-
-Aproveite o simulador!""")
-        main_layout.addWidget(self.campo_texto)
-
-        # --- Seção de Opções de Velocidade ---
         self.label_velocidade = QLabel("Modo de Velocidade:")
-        main_layout.addWidget(self.label_velocidade)
+        self.label_velocidade.setObjectName("LabelVelocidadePrincipal") # Adicionando objectName
+        content_layout.addWidget(self.label_velocidade)
 
         opcoes_velocidade_layout = QHBoxLayout()
-        self.modo_velocidade_group = QButtonGroup(self) # Para garantir exclusividade
-
+        self.modo_velocidade_group = QButtonGroup(self)
         self.radio_normal = QRadioButton("Normal")
-        self.radio_normal.setChecked(True) # Opção padrão
+        self.radio_normal.setChecked(True)
         self.modo_velocidade_group.addButton(self.radio_normal)
         opcoes_velocidade_layout.addWidget(self.radio_normal)
-
         self.radio_timelapse = QRadioButton("Time-Lapse")
         self.modo_velocidade_group.addButton(self.radio_timelapse)
         opcoes_velocidade_layout.addWidget(self.radio_timelapse)
+        opcoes_velocidade_layout.addStretch()
+        content_layout.addLayout(opcoes_velocidade_layout)
         
-        opcoes_velocidade_layout.addStretch() # Empurra os radios para a esquerda
-        main_layout.addLayout(opcoes_velocidade_layout)
+        content_layout.addStretch(1) 
 
-        # --- Seção de Botão e Status ---
-        # Espaçador para empurrar o botão para baixo
-        main_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        self.status_label = QLabel("") 
+        self.status_label.setObjectName("StatusLabel")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        content_layout.addWidget(self.status_label)
 
-        self.status_label = QLabel("") # Para feedback futuro, se necessário na GUI
-        self.status_label.setObjectName("StatusLabel") # Para estilização específica
-        main_layout.addWidget(self.status_label)
-        
         self.botao_iniciar = QPushButton("Iniciar Simulação")
         self.botao_iniciar.clicked.connect(self.ao_iniciar_simulacao)
-        self.botao_iniciar.setMinimumHeight(40) # Altura mínima para o botão
-        main_layout.addWidget(self.botao_iniciar)
+        self.botao_iniciar.setMinimumHeight(45)
+        content_layout.addWidget(self.botao_iniciar)
         
-        self.setLayout(main_layout)
-        self.setMinimumSize(550, 450) # Tamanho mínimo da janela
+        overall_layout.addWidget(content_widget)
+        overall_layout.setStretchFactor(content_widget, 1)
+
+        footer = self._create_footer()
+        overall_layout.addWidget(footer)
+        
+        self.setLayout(overall_layout)
+        self.setMinimumSize(600, 550)
 
     def apply_styles(self):
-        """Aplica os estilos QSS para um visual moderno."""
-        font_geral = QFont("Arial", 10)
-        font_label_titulo = QFont("Arial", 10) # Pode ser um pouco maior ou bold se quiser
-        font_botao = QFont("Arial", 11, QFont.Weight.Bold)
+        # Definição da pilha de fontes preferida
+        apple_font_stack = "'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
-        self.setFont(font_geral)
+        qss = f"""
+            QWidget {{ /* Fonte base para toda a aplicação */
+                font-family: Arial, sans-serif; /* Fallback bem genérico */
+                font-size: 10pt;
+            }}
 
-        qss = """
-            QWidget {
-                background-color: #F8F9FA; /* Fundo geral da janela (cinza bem claro) */
-            }
-            QLabel {
-                color: #212529; /* Cor de texto escura para labels */
-                padding-bottom: 2px; /* Pequeno espaço abaixo do label */
-            }
-            QTextEdit {
-                background-color: #FFFFFF; /* Fundo branco para o campo de texto */
-                border: 1px solid #CED4DA; /* Borda cinza clara */
-                border-radius: 8px; /* Cantos arredondados */
-                padding: 8px; /* Espaçamento interno */
+            #MainWindow {{ }}
+
+            #HeaderWidget {{
+                background-color: #FFFFFF;
+                border-bottom: 1px solid #E0E0E0; /* Borda inferior sutil cinza claro */
+            }}
+            #LogoLabel {{
+                font-family: {apple_font_stack};
+                color: #1D1D1F; /* Cor escura da Apple para texto */
+                font-size: 18pt; /* Aumentado para destaque */
+                font-weight: 600; /* Semi-bold */
+                padding: 5px 0px 5px 5px;
+            }}
+            #AppTitleLabel {{
+                font-family: {apple_font_stack};
+                color: #515154; /* Cinza Apple para texto secundário */
+                font-size: 11pt; /* Aumentado */
+                font-weight: 400; /* Regular */
+                padding-top: 2px; /* Alinhamento visual com o logo */
+            }}
+
+            #ContentWidget {{
+                background-color: #FFFFFF;
+            }}
+            /* Estilo para labels principais no corpo */
+            #LabelTextoPrincipal, #LabelVelocidadePrincipal {{
+                font-family: {apple_font_stack};
+                color: #1D1D1F; 
+                font-size: 11pt; /* Aumentado */
+                font-weight: 500; /* Medium */
+                padding-bottom: 4px;
+            }}
+             /* Estilo para labels gerais (não principais) dentro do ContentWidget, se houver */
+            #ContentWidget QLabel {{
+                font-family: {apple_font_stack}; /* Aplica também aos labels não nomeados dentro do content */
+                color: #333333;
                 font-size: 10pt;
-            }
-            QRadioButton {
+            }}
+
+            QTextEdit {{
+                font-family: {apple_font_stack};
+                background-color: #FFFFFF; 
+                border: 1px solid #D2D2D7; /* Cinza Apple para bordas de campos */
+                border-radius: 8px; 
+                padding: 10px; 
                 font-size: 10pt;
-                spacing: 5px; /* Espaço entre o botão e o texto */
-                color: #212529;
-            }
-            QRadioButton::indicator {
-                width: 16px; /* Tamanho do indicador do radio button */
+                color: #1D1D1F;
+            }}
+            QRadioButton {{
+                font-family: {apple_font_stack};
+                font-size: 10pt;
+                color: #1D1D1F;
+                spacing: 7px; 
+            }}
+            QRadioButton::indicator {{
+                width: 16px; 
                 height: 16px;
-            }
-            QPushButton {
-                background-color: #007BFF; /* Azul primário */
+            }}
+            QRadioButton::indicator:unchecked {{
+                border: 1.5px solid #AEAEB2; /* Cinza Apple para indicadores */
+                border-radius: 8px;
+                background-color: #FFFFFF;
+            }}
+            QRadioButton::indicator:checked {{
+                border: 1.5px solid #007AFF; /* Azul Apple para selecionado */
+                border-radius: 8px;
+                background-color: #007AFF; 
+            }}
+            QRadioButton::indicator:checked::after {{
+                content: ""; display: block;
+                width: 8px; height: 8px;
+                margin: 3px; /* (16 - 1.5*2 - 8)/2 */
+                border-radius: 4px;
+                background-color: white;
+            }}
+
+            QPushButton {{
+                font-family: {apple_font_stack};
+                background-color: #262626; 
                 color: white;
                 border: none;
-                border-radius: 8px; /* Cantos arredondados */
-                padding: 10px 15px; /* Espaçamento interno (vertical, horizontal) */
+                border-radius: 8px; 
+                padding: 12px 18px; 
                 font-size: 11pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0056b3; /* Azul mais escuro no hover */
-            }
-            QPushButton:pressed {
-                background-color: #004085; /* Azul ainda mais escuro ao pressionar */
-            }
-            #StatusLabel { /* Estilo para o status label, se usado */
-                color: #6C757D; /* Cinza para texto de status */
+                font-weight: 500; /* Medium */
+            }}
+            QPushButton:hover {{
+                background-color: #404040; 
+            }}
+            QPushButton:pressed {{
+                background-color: #7F7F7F; 
+            }}
+
+            #FooterWidget {{
+                background-color: #FFFFFF; 
+                border-top: 1px solid #E0E0E0; /* Borda sutil para separar do conteúdo branco */
+            }}
+            #CopyrightLabel, #VersionLabel {{
+                font-family: {apple_font_stack};
+                color: #8A8A8E; /* Cinza Apple para texto de rodapé */
+                font-size: 8pt;
+            }}
+            #StatusLabel {{ 
+                font-family: {apple_font_stack};
+                color: #8A8A8E; 
                 font-size: 9pt;
-            }
+                padding-bottom: 5px;
+            }}
         """
         self.setStyleSheet(qss)
-        self.label_texto.setFont(font_label_titulo)
-        self.label_velocidade.setFont(font_label_titulo)
-        # self.botao_iniciar.setFont(font_botao) # O QSS já define a fonte do botão
 
     def _center_window(self):
-        """Centraliza a janela na tela."""
         try:
             screen_geometry = QScreen.availableGeometry(QApplication.primaryScreen())
-            window_geometry = self.geometry()
-            x = (screen_geometry.width() - window_geometry.width()) // 2
-            y = (screen_geometry.height() - window_geometry.height()) // 2
-            self.move(x, y)
+            self.setGeometry(
+                (screen_geometry.width() - self.width()) // 2,
+                (screen_geometry.height() - self.height()) // 2,
+                self.width(),
+                self.height()
+            )
         except Exception as e:
             print(f"Não foi possível centralizar a janela: {e}")
 
-
-    # --- Métodos da Lógica de Simulação Adaptados ---
-    @Slot() # Indica que é um slot para sinais do Qt
+    @Slot() 
     def ao_iniciar_simulacao(self):
-        """Chamado quando o botão 'Iniciar Simulação' é clicado."""
         if self.simulacao_em_andamento:
             QMessageBox.warning(self, "Atenção", "Uma simulação já está em andamento.")
             return
@@ -235,59 +325,58 @@ Aproveite o simulador!""")
             return
 
         modo_selecionado = "Normal" if self.radio_normal.isChecked() else "Time-Lapse"
+        self.hide() 
+        
+        self.status_label.setText(f"Simulação em modo {modo_selecionado} iniciando...")
+        QApplication.processEvents() 
 
-        self.hide() # Esconde a janela da GUI
-
-        # Feedback no console (mantido do original)
         print(f"\nIniciando simulação em modo: {modo_selecionado}")
-        print(f"Você tem 5 segundos para posicionar o cursor no local desejado...")
-        print(f"Pressione '{TECLA_DE_PARADA}' (Esc) a qualquer momento para parar.")
-        if not PYPERCLIP_DISPONIVEL:
-            print("AVISO: Pyperclip não está instalado. Caracteres acentuados podem falhar.")
-        else:
-            print("INFO: Pyperclip está disponível, será usado para caracteres especiais.")
-        print(f"ATENÇÃO: Verifique se o layout do seu teclado no SO está correto (Ex: Português Brasil ABNT2).")
-
-        # Contagem regressiva no console
+        print(f"Você tem 5 segundos para posicionar o cursor...")
         for i in range(5, 0, -1):
-            if keyboard.is_pressed(TECLA_DE_PARADA): # Checagem preliminar
-                print(f"\n--- Tecla '{TECLA_DE_PARADA}' pressionada. Interrompendo simulação ANTES de iniciar.")
+            if keyboard.is_pressed(TECLA_DE_PARADA): 
+                print(f"\n--- Simulação interrompida ANTES de iniciar.")
                 self.show()
+                self.status_label.setText("Simulação cancelada.")
                 return
             print(f"{i}...")
             time.sleep(1)
-        
         print("Iniciando digitação!")
 
         try:
             self.executar_simulacao_logica(texto_input, modo_selecionado)
+            if hasattr(self, '_simulacao_concluida_sem_interrupcao') and self._simulacao_concluida_sem_interrupcao:
+                 self.status_label.setText("Simulação concluída!")
+            elif not self.simulacao_em_andamento : # Se foi interrompida
+                 self.status_label.setText("Simulação interrompida pelo usuário.")
+            # Se simulacao_em_andamento ainda for True aqui, significa que o loop terminou
+            # mas a flag não foi explicitamente setada para False por interrupção.
+            # A lógica de `executar_simulacao_logica` deve garantir o estado correto.
+
         except pyautogui.FailSafeException:
-            QMessageBox.critical(self, "Fail-Safe Ativado!",
-                                 "Simulação interrompida (mouse no canto superior esquerdo).")
+            QMessageBox.critical(self, "Fail-Safe Ativado!", "Simulação interrompida (mouse no canto superior esquerdo).")
             print("--- PYAUTOGUI FAIL-SAFE TRIGGERED ---")
+            self.status_label.setText("Fail-Safe Ativado!")
         except Exception as e:
-            QMessageBox.critical(self, "Erro na Simulação",
-                                 f"Ocorreu um erro inesperado: {e}")
+            QMessageBox.critical(self, "Erro na Simulação", f"Ocorreu um erro inesperado: {e}")
             print(f"Erro detalhado na simulação: {e}")
+            self.status_label.setText("Erro na simulação.")
             import traceback
             traceback.print_exc()
         finally:
-            self.simulacao_em_andamento = False # Garante que resetamos o estado
-            self.show() # Mostra a janela da GUI novamente
-            self.status_label.setText("") # Limpa o status label
+            self.simulacao_em_andamento = False 
+            self.show()
 
     def checar_parada_logica(self):
-        """Verifica se a tecla de parada foi pressionada."""
         if keyboard.is_pressed(TECLA_DE_PARADA):
             print(f"\n--- Tecla '{TECLA_DE_PARADA}' pressionada. Interrompendo simulação. ---")
             self.simulacao_em_andamento = False
+            self._simulacao_concluida_sem_interrupcao = False # Adicionado para clareza no status
             return True
         return False
 
     def digitar_sequencia_logica(self, sequencia, modo_velocidade, tipo_delay_char="normal_char"):
-        """Digita uma sequência de caracteres, um por um, com delay."""
         for char_item in sequencia:
-            if not self.simulacao_em_andamento: return False # Checa antes de cada char
+            if not self.simulacao_em_andamento: return False
             delay_char_atual = calcular_delay(modo_velocidade, tipo_delay_char)
             if char_item in ASCII_SIMPLES_PARA_TYPEWRITE:
                 pyautogui.typewrite(char_item)
@@ -298,118 +387,91 @@ Aproveite o simulador!""")
         return True
 
     def executar_simulacao_logica(self, texto_completo, modo_velocidade):
-        """Executa a lógica principal da simulação de digitação."""
         self.simulacao_em_andamento = True
+        self._simulacao_concluida_sem_interrupcao = True # Assume que vai concluir
+
         texto_completo = texto_completo.replace('\r\n', '\n').replace('\r', '\n')
-
         for char_idx, char_correto in enumerate(texto_completo):
-            if not self.simulacao_em_andamento: break
-
-            # Chance de erro em bloco
+            if not self.simulacao_em_andamento:
+                self._simulacao_concluida_sem_interrupcao = False
+                break
+            # ... (lógica de erro e digitação como antes, chamando self.checar_parada_logica) ...
+            # Exemplo de como tratar o retorno de checar_parada_logica dentro do loop:
             if char_correto.strip() and random.random() < CHANCE_DE_ERRO_BLOCO:
                 tamanho_bloco = random.choice(TAMANHOS_BLOCO_ERRO)
-                print(f"DEBUG: Simulando ERRO EM BLOCO de {tamanho_bloco} caracteres antes de '{char_correto}'")
                 bloco_errado = [random.choice(POSSIVEIS_CHARS_ERRO) for _ in range(tamanho_bloco)]
                 if char_correto.isupper() and bloco_errado[0].isalpha():
                     bloco_errado[0] = bloco_errado[0].upper()
-                
-                if not self.digitar_sequencia_logica(bloco_errado, modo_velocidade, "char_errado_bloco"): break
-                if self.checar_parada_logica(): break
+                if not self.digitar_sequencia_logica(bloco_errado, modo_velocidade, "char_errado_bloco"): self._simulacao_concluida_sem_interrupcao = False; break
                 time.sleep(calcular_delay(modo_velocidade, "percepcao_erro_bloco"))
-                if self.checar_parada_logica(): break
-                
-                print(f"DEBUG: Apagando bloco de {tamanho_bloco} caracteres...")
+                if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
                 for _ in range(tamanho_bloco):
-                    if not self.simulacao_em_andamento: break
+                    if not self.simulacao_em_andamento: self._simulacao_concluida_sem_interrupcao = False; break
                     pyautogui.press('backspace')
                     time.sleep(calcular_delay(modo_velocidade, "entre_backspaces_bloco"))
-                    if self.checar_parada_logica(): break
-                if not self.simulacao_em_andamento: break
-                
+                    if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
+                if not self.simulacao_em_andamento: self._simulacao_concluida_sem_interrupcao = False; break
                 time.sleep(calcular_delay(modo_velocidade, "pos_correcao_bloco"))
-                if self.checar_parada_logica(): break
+                if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
 
-            # Chance de erro de um caractere
             elif char_correto.strip() and random.random() < CHANCE_DE_ERRO_UM_CHAR:
-                print(f"DEBUG: Simulando ERRO DE UM CHAR para '{char_correto}'")
                 char_errado = random.choice(POSSIVEIS_CHARS_ERRO)
-                while char_errado == char_correto.lower() and len(POSSIVEIS_CHARS_ERRO) > 1:
-                    char_errado = random.choice(POSSIVEIS_CHARS_ERRO)
-                if char_correto.isupper() and char_errado.isalpha():
-                    char_errado = char_errado.upper()
-
-                delay_digitacao_errado = calcular_delay(modo_velocidade, "normal_char")
+                while char_errado == char_correto.lower() and len(POSSIVEIS_CHARS_ERRO) > 1: char_errado = random.choice(POSSIVEIS_CHARS_ERRO)
+                if char_correto.isupper() and char_errado.isalpha(): char_errado = char_errado.upper()
+                
                 if char_errado in ASCII_SIMPLES_PARA_TYPEWRITE: pyautogui.typewrite(char_errado)
                 else: digitar_caractere_com_clipboard(char_errado)
-                time.sleep(delay_digitacao_errado)
-                if self.checar_parada_logica(): break
-
-                time.sleep(calcular_delay(modo_velocidade, "percepcao_erro_um_char"))
-                if self.checar_parada_logica(): break
+                time.sleep(calcular_delay(modo_velocidade, "normal_char"))
+                if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
                 
+                time.sleep(calcular_delay(modo_velocidade, "percepcao_erro_um_char"))
+                if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
                 pyautogui.press('backspace')
                 time.sleep(calcular_delay(modo_velocidade, "pos_backspace_um_char"))
-                if self.checar_parada_logica(): break
-
-                delay_digitacao_correto = calcular_delay(modo_velocidade, "correcao_char_um_char")
+                if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
+                
                 if char_correto in ASCII_SIMPLES_PARA_TYPEWRITE: pyautogui.typewrite(char_correto)
                 else: digitar_caractere_com_clipboard(char_correto)
-                time.sleep(delay_digitacao_correto)
-                if self.checar_parada_logica(): break
-                continue # Pula a digitação normal do char_correto
-
-            # Digitação normal do char_correto
-            delay_normal_char = calcular_delay(modo_velocidade, "normal_char")
-            if char_correto in ASCII_SIMPLES_PARA_TYPEWRITE:
-                pyautogui.typewrite(char_correto)
-            else:
-                digitar_caractere_com_clipboard(char_correto)
-            time.sleep(delay_normal_char)
-            if self.checar_parada_logica(): break
-
-            # Pausas adicionais
-            if char_correto == ' ':
-                time.sleep(calcular_delay_palavra(modo_velocidade))
-            elif char_correto == '\n' or \
-                 (char_correto == '.' and char_idx + 1 < len(texto_completo) and texto_completo[char_idx+1] == ' '):
+                time.sleep(calcular_delay(modo_velocidade, "correcao_char_um_char"))
+                if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
+                continue
+            
+            if char_correto in ASCII_SIMPLES_PARA_TYPEWRITE: pyautogui.typewrite(char_correto)
+            else: digitar_caractere_com_clipboard(char_correto)
+            time.sleep(calcular_delay(modo_velocidade, "normal_char"))
+            if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
+            
+            if char_correto == ' ': time.sleep(calcular_delay_palavra(modo_velocidade))
+            elif char_correto == '\n' or (char_correto == '.' and char_idx + 1 < len(texto_completo) and texto_completo[char_idx+1] == ' '):
                 if modo_velocidade == "Normal": time.sleep(random.uniform(0.3, 0.7))
                 else: time.sleep(random.uniform(0.02, 0.06))
-            if self.checar_parada_logica(): break
-
-        if self.simulacao_em_andamento:
+            if self.checar_parada_logica(): self._simulacao_concluida_sem_interrupcao = False; break
+        
+        if self.simulacao_em_andamento and self._simulacao_concluida_sem_interrupcao:
             print("\n--- Simulação de digitação concluída! ---")
-        else:
-            # A mensagem de interrupção já foi impressa por checar_parada_logica
-            pass
-        self.simulacao_em_andamento = False
-
+        # A flag self.simulacao_em_andamento será resetada no finally de ao_iniciar_simulacao
 
     def closeEvent(self, event):
-        """Chamado quando o usuário tenta fechar a janela."""
         if self.simulacao_em_andamento:
             resposta = QMessageBox.question(self, "Sair?",
-                                            "A simulação parece estar em andamento. Deseja interrompê-la e sair?",
+                                            "A simulação está em andamento. Deseja interrompê-la e sair?",
                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                             QMessageBox.StandardButton.No)
             if resposta == QMessageBox.StandardButton.Yes:
                 self.simulacao_em_andamento = False
-                try:
-                    # Tenta pressionar ESC para garantir que a thread do keyboard listener (se houver)
-                    # ou a lógica de pyautogui.PAUSE seja afetada.
-                    keyboard.press_and_release(TECLA_DE_PARADA)
-                except Exception as e:
-                    print(f"Erro ao tentar simular tecla de parada no fechamento: {e}")
-                time.sleep(0.1) # Pequena pausa para processamento
-                event.accept() # Fecha a janela
+                self._simulacao_concluida_sem_interrupcao = False
+                try: keyboard.press_and_release(TECLA_DE_PARADA)
+                except Exception as e: print(f"Erro ao simular tecla no fechamento: {e}")
+                time.sleep(0.1) 
+                event.accept() 
             else:
-                event.ignore() # Não fecha a janela
+                event.ignore() 
         else:
             event.accept()
 
-
 if __name__ == "__main__":
-    pyautogui.FAILSAFE = True  # Essencial para segurança com pyautogui
-    pyautogui.PAUSE = 0.0      # Pyautogui não fará pausas automáticas entre as chamadas
+    pyautogui.FAILSAFE = True  
+    pyautogui.PAUSE = 0.0      
 
     app = QApplication(sys.argv)
     window = SimuladorApp()
